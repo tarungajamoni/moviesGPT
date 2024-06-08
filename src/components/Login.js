@@ -1,10 +1,22 @@
 import React, { useRef, useState } from "react";
 import Header from "./Header";
 import { validate } from "../utils/validate";
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  updateProfile,
+} from "firebase/auth";
+import { auth } from "../utils/firebase";
+import { useNavigate } from "react-router-dom";
+import { useDispatch } from "react-redux";
+import { addUser } from "../utils/userSlice";
 
 const SignIn = () => {
+  const dispatch = useDispatch();
   const [signUp, setSignUp] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+
+  const navigate = useNavigate();
   const SignUpForm = () => {
     setSignUp(!signUp);
   };
@@ -14,8 +26,67 @@ const SignIn = () => {
   const password = useRef(null);
 
   const handleButtonClick = () => {
-    setErrorMessage(validate(email.current.value, password.current.value));
-    if (!name.current.value) setErrorMessage("Name is not valid");
+    const response = validate(
+      name?.current?.value,
+      email.current.value,
+      password.current.value
+    );
+    setErrorMessage(response);
+    if (response) return;
+    if (signUp) {
+      createUserWithEmailAndPassword(
+        auth,
+        email.current.value,
+        password.current.value
+      )
+        .then((userCredential) => {
+          navigate("/browse");
+          const user = userCredential.user;
+          // ...
+        })
+        .catch((error) => {
+          const errorCode = error.code;
+          const errorMessage = error.message;
+          setErrorMessage(errorCode + "" + errorMessage);
+          // ..
+        });
+    } else {
+      signInWithEmailAndPassword(
+        auth,
+        email.current.value,
+        password.current.value
+      )
+        .then((userCredential) => {
+          // Signed in
+          const user = userCredential.user;
+          updateProfile(user, {
+            displayName: name?.current?.value,
+            photoURL:
+              "https://img.etimg.com/thumb/width-1200,height-1200,imgsize-43518,resizemode-75,msid-104750685/magazines/panache/i-do-have-a-phone-but-i-use-it-only-to-set-an-alarm-at-night-ms-dhoni-says-spending-too-much-time-on-social-media-affects-people.jpg",
+          })
+            .then(() => {
+              const { uid, email, displayName, photoURL } = auth.currentUser;
+              dispatch(
+                addUser({
+                  uid: uid,
+                  email: email,
+                  displayName: displayName,
+                  photoURL: photoURL,
+                })
+              );
+              navigate("/browse");
+            })
+            .catch((error) => {
+              // An error occurred
+            });
+          navigate("/browse");
+        })
+        .catch((error) => {
+          const errorCode = error.code;
+          const errorMessage = error.message;
+          setErrorMessage(errorCode + "" + errorMessage);
+        });
+    }
   };
   return (
     <div className="">
